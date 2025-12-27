@@ -2,10 +2,10 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>POS – Paso 3</title>
+<title>POS – Inventario</title>
 
 <style>
-table { width:100%; border-collapse:collapse; }
+table { width:100%; border-collapse:collapse; margin-top:10px; }
 th, td { border-bottom:1px solid #ccc; padding:4px; }
 .total { font-size:18px; font-weight:bold; text-align:right; }
 </style>
@@ -13,20 +13,36 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 
 <body>
 
-<h2>POS – FERRETERÍA (Paso 3 – Inventario + Cantidad)</h2>
+<h2>POS – FERRETERÍA (Inventario + Venta)</h2>
 
-<h3>Registrar producto</h3>
+<h3>Registrar / Agregar Existencia</h3>
 <input id="codigo" placeholder="Código de barras">
 <input id="nombre" placeholder="Nombre del producto">
 <input id="precio" type="number" placeholder="Precio normal (Q)">
 <input id="precioMin" type="number" placeholder="Precio mínimo permitido (Q)">
-<input id="stock" type="number" placeholder="Existencia">
-<button onclick="guardar()">Guardar producto</button>
+<input id="stock" type="number" placeholder="Cantidad a agregar">
+<button onclick="guardar()">Guardar / Sumar</button>
 
 <hr>
 
-<h3>Venta</h3>
-<input id="scan" placeholder="Escanear / escribir código y ENTER">
+<h3>📦 Inventario</h3>
+<table>
+<thead>
+<tr>
+  <th>Código</th>
+  <th>Producto</th>
+  <th>Stock</th>
+  <th>Precio</th>
+  <th>Mínimo</th>
+</tr>
+</thead>
+<tbody id="tablaInv"></tbody>
+</table>
+
+<hr>
+
+<h3>🛒 Venta</h3>
+<input id="scan" placeholder="Código + ENTER">
 
 <table>
 <thead>
@@ -41,7 +57,6 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 </table>
 
 <div class="total" id="totalVenta">Total: Q0.00</div>
-
 <button onclick="finalizar()">Finalizar venta</button>
 
 <script>
@@ -55,93 +70,92 @@ function guardar() {
   const pmin = Number(precioMin.value);
   const s = Number(stock.value);
 
-  if (!c || !n || !p || !pmin || !s) {
-    alert("Complete todos los campos");
+  if (!c || !s) {
+    alert("Código y cantidad son obligatorios");
     return;
   }
 
-  if (pmin > p) {
-    alert("Precio mínimo mayor al normal");
-    return;
+  if (inventario[c]) {
+    inventario[c].stock += s;
+    alert("✅ Existencia agregada");
+  } else {
+    if (!n || !p || !pmin) {
+      alert("Complete todos los datos para nuevo producto");
+      return;
+    }
+    inventario[c] = {
+      nombre:n,
+      precio:p,
+      precioMin:pmin,
+      stock:s
+    };
+    alert("✅ Producto creado");
   }
-
-  inventario[c] = {
-    nombre: n,
-    precio: p,
-    precioMin: pmin,
-    stock: s
-  };
 
   localStorage.setItem("inv", JSON.stringify(inventario));
-  alert("Producto guardado");
+  limpiar();
+  mostrarInventario();
+}
 
+function limpiar() {
   codigo.value = nombre.value = precio.value = precioMin.value = stock.value = "";
+}
+
+function mostrarInventario() {
+  tablaInv.innerHTML = "";
+  for (let c in inventario) {
+    const p = inventario[c];
+    tablaInv.innerHTML += `
+      <tr>
+        <td>${c}</td>
+        <td>${p.nombre}</td>
+        <td>${p.stock}</td>
+        <td>Q${p.precio.toFixed(2)}</td>
+        <td>Q${p.precioMin.toFixed(2)}</td>
+      </tr>
+    `;
+  }
 }
 
 scan.addEventListener("keydown", e => {
   if (e.key === "Enter") {
-    agregar(scan.value.trim());
+    vender(scan.value.trim());
     scan.value = "";
   }
 });
 
-function agregar(c) {
+function vender(c) {
   const p = inventario[c];
-  if (!p) {
-    alert("Producto no registrado");
-    return;
-  }
+  if (!p) return alert("Producto no registrado");
+  if (p.stock <= 0) return alert("Sin existencia");
 
-  if (p.stock <= 0) {
-    alert("❌ Sin existencia");
-    return;
-  }
-
-  let cant = Number(prompt(
-    "Producto: " + p.nombre +
-    "\nExistencia disponible: " + p.stock +
-    "\n\n¿Cuántas unidades llevará?"
-  ));
-
-  if (!cant || cant <= 0) {
-    alert("Cantidad inválida");
-    return;
-  }
-
-  if (cant > p.stock) {
-    alert("No hay suficiente existencia");
-    return;
-  }
+  let cant = Number(prompt(`Existencia: ${p.stock}\n¿Cuántas unidades llevará?`));
+  if (!cant || cant > p.stock) return alert("Cantidad inválida");
 
   let precioVenta = Number(prompt(
-    "Precio normal: Q" + p.precio +
-    "\nPrecio mínimo permitido: Q" + p.precioMin +
-    "\n\nPrecio a cobrar por unidad:",
+    `Precio normal: Q${p.precio}\nPrecio mínimo: Q${p.precioMin}\n\nPrecio por unidad:`,
     p.precio
   ));
 
-  if (precioVenta < p.precioMin) {
-    alert("No se permite vender debajo del precio mínimo");
-    return;
-  }
+  if (precioVenta < p.precioMin) return alert("Debajo del mínimo");
 
   p.stock -= cant;
 
   carrito.push({
-    nombre: p.nombre,
-    cant: cant,
-    precio: precioVenta,
-    total: cant * precioVenta
+    nombre:p.nombre,
+    cant:cant,
+    precio:precioVenta,
+    total:cant*precioVenta
   });
 
   localStorage.setItem("inv", JSON.stringify(inventario));
+  mostrarInventario();
   actualizar();
 }
 
 function actualizar() {
   tabla.innerHTML = "";
   let total = 0;
-
   carrito.forEach(i => {
     total += i.total;
     tabla.innerHTML += `
@@ -153,25 +167,16 @@ function actualizar() {
       </tr>
     `;
   });
-
   totalVenta.textContent = "Total: Q" + total.toFixed(2);
 }
 
 function finalizar() {
-  if (carrito.length === 0) {
-    alert("No hay productos");
-    return;
-  }
-
-  alert(
-    "Venta finalizada\n" +
-    "Productos distintos: " + carrito.length + "\n" +
-    totalVenta.textContent
-  );
-
   carrito = [];
   actualizar();
+  alert("Venta finalizada");
 }
+
+mostrarInventario();
 </script>
 
 </body>
