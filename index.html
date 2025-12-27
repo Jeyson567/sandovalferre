@@ -13,7 +13,7 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 
 <body>
 
-<h2>POS – FERRETERÍA (Paso 3 – Inventario)</h2>
+<h2>POS – FERRETERÍA (Paso 3 – Inventario + Cantidad)</h2>
 
 <h3>Registrar producto</h3>
 <input id="codigo" placeholder="Código de barras">
@@ -32,6 +32,7 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 <thead>
 <tr>
   <th>Producto</th>
+  <th>Cant</th>
   <th>Precio</th>
   <th>Total</th>
 </tr>
@@ -96,25 +97,41 @@ function agregar(c) {
     return;
   }
 
-  let precioVenta = Number(prompt(
+  let cant = Number(prompt(
     "Producto: " + p.nombre +
-    "\nExistencia: " + p.stock +
-    "\nPrecio normal: Q" + p.precio +
-    "\nPrecio mínimo: Q" + p.precioMin +
-    "\n\nPrecio a cobrar:",
+    "\nExistencia disponible: " + p.stock +
+    "\n\n¿Cuántas unidades llevará?"
+  ));
+
+  if (!cant || cant <= 0) {
+    alert("Cantidad inválida");
+    return;
+  }
+
+  if (cant > p.stock) {
+    alert("No hay suficiente existencia");
+    return;
+  }
+
+  let precioVenta = Number(prompt(
+    "Precio normal: Q" + p.precio +
+    "\nPrecio mínimo permitido: Q" + p.precioMin +
+    "\n\nPrecio a cobrar por unidad:",
     p.precio
   ));
 
   if (precioVenta < p.precioMin) {
-    alert("No se permite vender debajo del mínimo");
+    alert("No se permite vender debajo del precio mínimo");
     return;
   }
 
-  p.stock -= 1;
+  p.stock -= cant;
 
   carrito.push({
     nombre: p.nombre,
-    precio: precioVenta
+    cant: cant,
+    precio: precioVenta,
+    total: cant * precioVenta
   });
 
   localStorage.setItem("inv", JSON.stringify(inventario));
@@ -126,12 +143,13 @@ function actualizar() {
   let total = 0;
 
   carrito.forEach(i => {
-    total += i.precio;
+    total += i.total;
     tabla.innerHTML += `
       <tr>
         <td>${i.nombre}</td>
+        <td>${i.cant}</td>
         <td>Q${i.precio.toFixed(2)}</td>
-        <td>Q${i.precio.toFixed(2)}</td>
+        <td>Q${i.total.toFixed(2)}</td>
       </tr>
     `;
   });
@@ -147,7 +165,7 @@ function finalizar() {
 
   alert(
     "Venta finalizada\n" +
-    "Productos: " + carrito.length + "\n" +
+    "Productos distintos: " + carrito.length + "\n" +
     totalVenta.textContent
   );
 
