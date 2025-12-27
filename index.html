@@ -71,8 +71,9 @@ const telefonoJefe = "50231064872";
 
 let inventario = JSON.parse(localStorage.getItem("inv")) || {};
 let carrito = [];
-let ventasDia = [];
+let ventasDia = JSON.parse(localStorage.getItem("ventasDia")) || [];
 
+/* ===== INVENTARIO ===== */
 function guardar() {
   const c = codigo.value.trim();
   const n = nombre.value.trim();
@@ -112,11 +113,14 @@ function mostrarInventario() {
   tablaInv.innerHTML = "";
   for (let c in inventario) {
     tablaInv.innerHTML += `<tr>
-      <td>${c}</td><td>${inventario[c].nombre}</td><td>${inventario[c].stock}</td>
+      <td>${c}</td>
+      <td>${inventario[c].nombre}</td>
+      <td>${inventario[c].stock}</td>
     </tr>`;
   }
 }
 
+/* ===== VENTA ===== */
 scan.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     agregar(scan.value.trim());
@@ -137,7 +141,14 @@ function agregar(c) {
   ));
   if (precioVenta < p.precioMin) return alert("Debajo del mínimo");
 
-  carrito.push({ codigo:c, nombre:p.nombre, cant, precio:precioVenta, total:cant*precioVenta });
+  carrito.push({
+    codigo:c,
+    nombre:p.nombre,
+    cant,
+    precio:precioVenta,
+    total:cant*precioVenta
+  });
+
   actualizarVenta();
 }
 
@@ -147,7 +158,8 @@ function actualizarVenta() {
   carrito.forEach(i => {
     total += i.total;
     tablaVenta.innerHTML += `<tr>
-      <td>${i.nombre} x${i.cant}</td><td>Q${i.total.toFixed(2)}</td>
+      <td>${i.nombre} x${i.cant}</td>
+      <td>Q${i.total.toFixed(2)}</td>
     </tr>`;
   });
   totalVenta.textContent = "Total: Q" + total.toFixed(2);
@@ -161,6 +173,7 @@ function finalizarVenta() {
   });
 
   ventasDia.push(...carrito);
+  localStorage.setItem("ventasDia", JSON.stringify(ventasDia));
   localStorage.setItem("inv", JSON.stringify(inventario));
 
   imprimirTicket();
@@ -174,9 +187,13 @@ function cancelarVenta() {
   actualizarVenta();
 }
 
+/* ===== TICKET ===== */
 function imprimirTicket() {
-  let html = `<center><strong>FERRETERÍA SANDOVAL</strong></center>
-  <center>${new Date().toLocaleString()}</center><hr>`;
+  let html = `
+  <center><strong>FERRETERÍA SANDOVAL</strong></center>
+  <center>${new Date().toLocaleString()}</center>
+  <hr>
+  `;
   carrito.forEach(i=>{
     html+=`${i.nombre}<br>${i.cant} x Q${i.precio} = Q${i.total}<br>`;
   });
@@ -187,8 +204,9 @@ function imprimirTicket() {
   location.reload();
 }
 
+/* ===== CIERRE DEL DÍA ===== */
 function cerrarDia() {
-  if (ventasDia.length === 0) return alert("No hay ventas");
+  if (ventasDia.length === 0) return alert("No hay ventas en el día");
 
   let resumen = {};
   let total = 0;
@@ -201,10 +219,12 @@ function cerrarDia() {
   });
 
   let mensaje = `📊 CIERRE DIARIO – FERRETERÍA SANDOVAL\n`;
-  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n📦 DETALLE:\n`;
+  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n📦 DETALLE DE VENTAS:\n\n`;
 
   for (let p in resumen) {
-    mensaje += `- ${p}\n  Cantidad: ${resumen[p].cant}\n  Total: Q${resumen[p].total.toFixed(2)}\n\n`;
+    mensaje += `- ${p}\n`;
+    mensaje += `  Cantidad: ${resumen[p].cant}\n`;
+    mensaje += `  Total: Q${resumen[p].total.toFixed(2)}\n\n`;
   }
 
   mensaje += `💰 TOTAL DEL DÍA: Q${total.toFixed(2)}`;
@@ -212,7 +232,9 @@ function cerrarDia() {
   window.open(`https://wa.me/${telefonoJefe}?text=${encodeURIComponent(mensaje)}`);
 
   ventasDia = [];
-  alert("Cierre enviado. Ventas del día reiniciadas.");
+  localStorage.removeItem("ventasDia");
+
+  alert("✅ Cierre enviado. Ventas del día reiniciadas.");
 }
 
 mostrarInventario();
