@@ -2,30 +2,38 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>POS – Inventario</title>
+<title>POS – Ferretería Sandoval</title>
 
 <style>
-table { width:100%; border-collapse:collapse; margin-top:10px; }
-th, td { border-bottom:1px solid #ccc; padding:4px; }
+body { font-family: Arial, sans-serif; background:#f2f2f2; padding:10px; }
+h2 { text-align:center; }
+section { background:#fff; padding:10px; margin-bottom:10px; border-radius:6px; }
+input, button { width:100%; padding:6px; margin:4px 0; }
+button { cursor:pointer; }
+table { width:100%; border-collapse:collapse; margin-top:6px; }
+th, td { border-bottom:1px solid #ccc; padding:4px; text-align:left; }
 .total { font-size:18px; font-weight:bold; text-align:right; }
+.danger { background:#c62828; color:#fff; }
 </style>
 </head>
 
 <body>
 
-<h2>POS – FERRETERÍA (Inventario + Venta)</h2>
+<h2>POS – FERRETERÍA SANDOVAL</h2>
 
-<h3>Registrar / Agregar Existencia</h3>
+<section>
+<h3>📦 Registrar / Agregar Existencia</h3>
 <input id="codigo" placeholder="Código de barras">
 <input id="nombre" placeholder="Nombre del producto">
 <input id="precio" type="number" placeholder="Precio normal (Q)">
 <input id="precioMin" type="number" placeholder="Precio mínimo permitido (Q)">
 <input id="stock" type="number" placeholder="Cantidad a agregar">
 <button onclick="guardar()">Guardar / Sumar</button>
+<button class="danger" onclick="eliminarProducto()">Eliminar producto</button>
+</section>
 
-<hr>
-
-<h3>📦 Inventario</h3>
+<section>
+<h3>📋 Inventario</h3>
 <table>
 <thead>
 <tr>
@@ -38,12 +46,11 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 </thead>
 <tbody id="tablaInv"></tbody>
 </table>
+</section>
 
-<hr>
-
+<section>
 <h3>🛒 Venta</h3>
 <input id="scan" placeholder="Código + ENTER">
-
 <table>
 <thead>
 <tr>
@@ -53,11 +60,11 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
   <th>Total</th>
 </tr>
 </thead>
-<tbody id="tabla"></tbody>
+<tbody id="tablaVenta"></tbody>
 </table>
-
 <div class="total" id="totalVenta">Total: Q0.00</div>
 <button onclick="finalizar()">Finalizar venta</button>
+</section>
 
 <script>
 let inventario = JSON.parse(localStorage.getItem("inv")) || {};
@@ -80,7 +87,11 @@ function guardar() {
     alert("✅ Existencia agregada");
   } else {
     if (!n || !p || !pmin) {
-      alert("Complete todos los datos para nuevo producto");
+      alert("Complete todos los datos del producto");
+      return;
+    }
+    if (pmin > p) {
+      alert("Precio mínimo mayor al normal");
       return;
     }
     inventario[c] = {
@@ -93,6 +104,27 @@ function guardar() {
   }
 
   localStorage.setItem("inv", JSON.stringify(inventario));
+  limpiar();
+  mostrarInventario();
+}
+
+function eliminarProducto() {
+  const c = codigo.value.trim();
+  if (!c) return alert("Ingrese el código");
+
+  if (!inventario[c]) return alert("El producto no existe");
+
+  const ok = confirm(
+    "¿Eliminar este producto?\n\n" +
+    inventario[c].nombre +
+    "\nStock: " + inventario[c].stock
+  );
+
+  if (!ok) return;
+
+  delete inventario[c];
+  localStorage.setItem("inv", JSON.stringify(inventario));
+  alert("🗑️ Producto eliminado");
   limpiar();
   mostrarInventario();
 }
@@ -130,14 +162,14 @@ function vender(c) {
   if (p.stock <= 0) return alert("Sin existencia");
 
   let cant = Number(prompt(`Existencia: ${p.stock}\n¿Cuántas unidades llevará?`));
-  if (!cant || cant > p.stock) return alert("Cantidad inválida");
+  if (!cant || cant <= 0 || cant > p.stock) return alert("Cantidad inválida");
 
   let precioVenta = Number(prompt(
     `Precio normal: Q${p.precio}\nPrecio mínimo: Q${p.precioMin}\n\nPrecio por unidad:`,
     p.precio
   ));
 
-  if (precioVenta < p.precioMin) return alert("Debajo del mínimo");
+  if (precioVenta < p.precioMin) return alert("Precio debajo del mínimo");
 
   p.stock -= cant;
 
@@ -150,15 +182,16 @@ function vender(c) {
 
   localStorage.setItem("inv", JSON.stringify(inventario));
   mostrarInventario();
-  actualizar();
+  actualizarVenta();
 }
 
-function actualizar() {
-  tabla.innerHTML = "";
+function actualizarVenta() {
+  tablaVenta.innerHTML = "";
   let total = 0;
+
   carrito.forEach(i => {
     total += i.total;
-    tabla.innerHTML += `
+    tablaVenta.innerHTML += `
       <tr>
         <td>${i.nombre}</td>
         <td>${i.cant}</td>
@@ -167,13 +200,15 @@ function actualizar() {
       </tr>
     `;
   });
+
   totalVenta.textContent = "Total: Q" + total.toFixed(2);
 }
 
 function finalizar() {
+  if (carrito.length === 0) return alert("No hay productos");
   carrito = [];
-  actualizar();
-  alert("Venta finalizada");
+  actualizarVenta();
+  alert("✅ Venta finalizada");
 }
 
 mostrarInventario();
