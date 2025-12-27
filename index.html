@@ -2,60 +2,52 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>POS - Ferretería Sandoval</title>
+<title>POS – Ferretería Sandoval</title>
 
 <style>
 body {
   font-family: Arial, sans-serif;
-  background: #f2f2f2;
-  margin: 0;
-  padding: 10px;
+  background:#f2f2f2;
+  margin:0;
+  padding:10px;
 }
-h1 {
-  text-align: center;
-}
+h1 { text-align:center; }
 section {
-  background: #fff;
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 5px;
+  background:#fff;
+  padding:10px;
+  margin-bottom:10px;
+  border-radius:6px;
 }
 input, button {
-  padding: 6px;
-  margin: 4px 0;
-  width: 100%;
+  width:100%;
+  padding:6px;
+  margin:4px 0;
 }
-button {
-  cursor: pointer;
-}
+button { cursor:pointer; }
 table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+  width:100%;
+  border-collapse:collapse;
+  font-size:14px;
 }
 th, td {
-  border-bottom: 1px solid #ccc;
-  padding: 4px;
+  border-bottom:1px solid #ccc;
+  padding:4px;
 }
 .total {
-  font-size: 18px;
-  font-weight: bold;
-  text-align: right;
+  text-align:right;
+  font-size:18px;
+  font-weight:bold;
 }
 
-/* ==== IMPRESIÓN TICKET 80mm ==== */
+/* === IMPRESIÓN TICKET 80mm === */
 @media print {
   body {
-    width: 80mm;
-    margin: 0;
-    background: #fff;
+    width:80mm;
+    margin:0;
+    background:#fff;
+    font-size:12px;
   }
-  .no-print {
-    display: none;
-  }
-  table {
-    font-size: 12px;
-  }
+  .no-print { display:none; }
 }
 </style>
 </head>
@@ -64,30 +56,33 @@ th, td {
 
 <h1>FERRETERÍA SANDOVAL</h1>
 
+<!-- REGISTRO DE PRODUCTOS -->
 <section class="no-print">
-<h3>📦 Registrar / Editar Producto</h3>
-<input id="codigo" placeholder="Código de barras">
+<h3>📦 Registro de Producto</h3>
+<input id="codigo" placeholder="Código de barras (escanea aquí)">
 <input id="nombre" placeholder="Nombre del producto">
 <input id="categoria" placeholder="Categoría">
 <input id="existencia" type="number" step="0.01" placeholder="Existencia">
-<input id="precio" type="number" step="0.01" placeholder="Precio normal (Q)">
-<input id="precioMin" type="number" step="0.01" placeholder="Precio mínimo permitido (Q)">
+<input id="precio" type="number" step="0.01" placeholder="Precio normal Q">
+<input id="precioMin" type="number" step="0.01" placeholder="Precio mínimo permitido Q">
 <button onclick="guardarProducto()">Guardar producto</button>
 </section>
 
+<!-- PUNTO DE VENTA -->
 <section class="no-print">
 <h3>🛒 Punto de Venta</h3>
-<input id="scan" placeholder="Escanear código de barras" autofocus>
-<table id="tablaVenta">
+<input id="scan" placeholder="Escanear producto para vender" autofocus>
+<table>
 <thead>
 <tr><th>Producto</th><th>Cant</th><th>Precio</th><th>Total</th></tr>
 </thead>
-<tbody></tbody>
+<tbody id="tablaVenta"></tbody>
 </table>
 <div class="total" id="totalVenta">Total: Q0.00</div>
 <button onclick="finalizarVenta()">Finalizar venta e imprimir</button>
 </section>
 
+<!-- CIERRE -->
 <section class="no-print">
 <h3>📊 Cierre del Día</h3>
 <button onclick="cierreDelDia()">Hacer cierre y enviar WhatsApp</button>
@@ -101,20 +96,36 @@ let ventasDia = JSON.parse(localStorage.getItem("ventas_dia")) || [];
 let ticketNum = Number(localStorage.getItem("ticket_num")) || 1;
 let carrito = [];
 
+/* ===== GUARDAR PRODUCTO (ARREGLADO) ===== */
 function guardarProducto() {
   const c = codigo.value.trim();
-  if (!c) return alert("Código requerido");
+  const n = nombre.value.trim();
+
+  if (!c || !n) {
+    alert("Código y nombre son obligatorios");
+    return;
+  }
+
   inventario[c] = {
-    nombre: nombre.value,
-    categoria: categoria.value,
-    existencia: Number(existencia.value),
-    precio: Number(precio.value),
-    precioMin: Number(precioMin.value)
+    nombre: n,
+    categoria: categoria.value.trim(),
+    existencia: Number(existencia.value) || 0,
+    precio: Number(precio.value) || 0,
+    precioMin: Number(precioMin.value) || 0
   };
+
   localStorage.setItem("inventario_sandoval", JSON.stringify(inventario));
-  alert("Producto guardado");
+  alert("✅ Producto guardado correctamente");
+
+  codigo.value = "";
+  nombre.value = "";
+  categoria.value = "";
+  existencia.value = "";
+  precio.value = "";
+  precioMin.value = "";
 }
 
+/* ===== ESCANEO PARA VENTA ===== */
 scan.addEventListener("keydown", e => {
   if (e.key === "Enter") {
     agregarVenta(scan.value.trim());
@@ -122,19 +133,27 @@ scan.addEventListener("keydown", e => {
   }
 });
 
-function agregarVenta(codigo) {
-  const p = inventario[codigo];
-  if (!p) return alert("Producto no registrado");
+function agregarVenta(cod) {
+  const p = inventario[cod];
+  if (!p) {
+    alert("Producto no registrado");
+    return;
+  }
+  if (p.existencia <= 0) {
+    alert("Sin existencia");
+    return;
+  }
 
   let precioCobro = prompt(
-    `Precio normal: Q${p.precio}\nPrecio mínimo: Q${p.precioMin}\n\nIngrese precio a cobrar:`,
+    `Precio normal: Q${p.precio}\nPrecio mínimo permitido: Q${p.precioMin}\n\nPrecio a cobrar:`,
     p.precio
   );
+
   precioCobro = Number(precioCobro);
   if (precioCobro < p.precioMin) {
-    return alert("No se permite cobrar menos del precio mínimo");
+    alert("No se permite cobrar menos del precio mínimo");
+    return;
   }
-  if (p.existencia <= 0) return alert("Sin existencia");
 
   p.existencia -= 1;
   carrito.push({
@@ -143,82 +162,20 @@ function agregarVenta(codigo) {
     precio: precioCobro,
     total: precioCobro
   });
-  actualizarTabla();
+
   localStorage.setItem("inventario_sandoval", JSON.stringify(inventario));
+  actualizarTabla();
 }
 
 function actualizarTabla() {
-  const tb = document.querySelector("#tablaVenta tbody");
-  tb.innerHTML = "";
+  tablaVenta.innerHTML = "";
   let total = 0;
+
   carrito.forEach(i => {
     total += i.total;
-    tb.innerHTML += `<tr>
-      <td>${i.nombre}</td>
-      <td>${i.cant}</td>
-      <td>Q${i.precio.toFixed(2)}</td>
-      <td>Q${i.total.toFixed(2)}</td>
-    </tr>`;
-  });
-  totalVenta.textContent = "Total: Q" + total.toFixed(2);
-}
-
-function finalizarVenta() {
-  if (carrito.length === 0) return alert("No hay venta");
-  const venta = {
-    ticket: ticketNum,
-    fecha: new Date().toLocaleString(),
-    items: carrito,
-    total: carrito.reduce((s,i)=>s+i.total,0)
-  };
-  ventasDia.push(venta);
-  localStorage.setItem("ventas_dia", JSON.stringify(ventasDia));
-  localStorage.setItem("ticket_num", ++ticketNum);
-
-  imprimirTicket(venta);
-  carrito = [];
-  actualizarTabla();
-}
-
-function imprimirTicket(v) {
-  document.body.innerHTML = `
-  <h3 style="text-align:center">FERRETERÍA SANDOVAL</h3>
-  Ticket #${v.ticket}<br>
-  ${v.fecha}<br><hr>
-  ${v.items.map(i=>`${i.nombre}<br>${i.cant} x Q${i.precio} = Q${i.total}`).join("<br>")}
-  <hr>
-  TOTAL: Q${v.total.toFixed(2)}<br><br>
-  Gracias por su compra
-  `;
-  window.print();
-  location.reload();
-}
-
-function cierreDelDia() {
-  if (ventasDia.length === 0) return alert("No hay ventas");
-  let texto = `📊 CIERRE DIARIO – FERRETERÍA SANDOVAL\n`;
-  texto += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
-  let total = 0;
-  ventasDia.forEach(v => total += v.total);
-  texto += `Tickets: ${ventasDia.length}\n`;
-  texto += `TOTAL VENDIDO: Q${total.toFixed(2)}\n\n`;
-  texto += `Detalle:\n`;
-  ventasDia.forEach(v => {
-    v.items.forEach(i=>{
-      texto += `- ${i.nombre}: Q${i.total}\n`;
-    });
-  });
-
-  window.open(
-    `https://wa.me/${telefonoJefe}?text=${encodeURIComponent(texto)}`,
-    "_blank"
-  );
-
-  ventasDia = [];
-  localStorage.setItem("ventas_dia", JSON.stringify([]));
-  alert("Cierre realizado, ventas reiniciadas");
-}
-</script>
-
-</body>
-</html>
+    tablaVenta.innerHTML += `
+      <tr>
+        <td>${i.nombre}</td>
+        <td>${i.cant}</td>
+        <td>Q${i.precio.toFixed(2)}</td>
+        <td>Q${
