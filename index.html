@@ -11,9 +11,10 @@ section { background:#fff; padding:10px; margin-bottom:10px; border-radius:6px; 
 input, button { width:100%; padding:6px; margin:4px 0; }
 button { cursor:pointer; }
 table { width:100%; border-collapse:collapse; margin-top:6px; }
-th, td { border-bottom:1px solid #ccc; padding:4px; text-align:left; }
+th, td { border-bottom:1px solid #ccc; padding:4px; }
 .total { font-size:18px; font-weight:bold; text-align:right; }
 .danger { background:#c62828; color:#fff; }
+.secondary { background:#757575; color:#fff; }
 </style>
 </head>
 
@@ -62,14 +63,18 @@ th, td { border-bottom:1px solid #ccc; padding:4px; text-align:left; }
 </thead>
 <tbody id="tablaVenta"></tbody>
 </table>
+
 <div class="total" id="totalVenta">Total: Q0.00</div>
-<button onclick="finalizar()">Finalizar venta</button>
+
+<button onclick="finalizarVenta()">Finalizar venta</button>
+<button class="secondary" onclick="cancelarVenta()">Cancelar venta</button>
 </section>
 
 <script>
 let inventario = JSON.parse(localStorage.getItem("inv")) || {};
 let carrito = [];
 
+/* ===== INVENTARIO ===== */
 function guardar() {
   const c = codigo.value.trim();
   const n = nombre.value.trim();
@@ -104,7 +109,7 @@ function guardar() {
   }
 
   localStorage.setItem("inv", JSON.stringify(inventario));
-  limpiar();
+  limpiarCampos();
   mostrarInventario();
 }
 
@@ -114,22 +119,20 @@ function eliminarProducto() {
 
   if (!inventario[c]) return alert("El producto no existe");
 
-  const ok = confirm(
+  if (!confirm(
     "¿Eliminar este producto?\n\n" +
     inventario[c].nombre +
     "\nStock: " + inventario[c].stock
-  );
-
-  if (!ok) return;
+  )) return;
 
   delete inventario[c];
   localStorage.setItem("inv", JSON.stringify(inventario));
-  alert("🗑️ Producto eliminado");
-  limpiar();
+  limpiarCampos();
   mostrarInventario();
+  alert("🗑️ Producto eliminado");
 }
 
-function limpiar() {
+function limpiarCampos() {
   codigo.value = nombre.value = precio.value = precioMin.value = stock.value = "";
 }
 
@@ -149,19 +152,23 @@ function mostrarInventario() {
   }
 }
 
+/* ===== VENTA ===== */
 scan.addEventListener("keydown", e => {
   if (e.key === "Enter") {
-    vender(scan.value.trim());
+    agregarAlCarrito(scan.value.trim());
     scan.value = "";
   }
 });
 
-function vender(c) {
+function agregarAlCarrito(c) {
   const p = inventario[c];
   if (!p) return alert("Producto no registrado");
   if (p.stock <= 0) return alert("Sin existencia");
 
-  let cant = Number(prompt(`Existencia: ${p.stock}\n¿Cuántas unidades llevará?`));
+  let cant = Number(prompt(
+    `Producto: ${p.nombre}\nExistencia disponible: ${p.stock}\n\n¿Cuántas unidades llevará?`
+  ));
+
   if (!cant || cant <= 0 || cant > p.stock) return alert("Cantidad inválida");
 
   let precioVenta = Number(prompt(
@@ -171,17 +178,14 @@ function vender(c) {
 
   if (precioVenta < p.precioMin) return alert("Precio debajo del mínimo");
 
-  p.stock -= cant;
-
   carrito.push({
-    nombre:p.nombre,
-    cant:cant,
-    precio:precioVenta,
-    total:cant*precioVenta
+    codigo: c,
+    nombre: p.nombre,
+    cant: cant,
+    precio: precioVenta,
+    total: cant * precioVenta
   });
 
-  localStorage.setItem("inv", JSON.stringify(inventario));
-  mostrarInventario();
   actualizarVenta();
 }
 
@@ -204,11 +208,38 @@ function actualizarVenta() {
   totalVenta.textContent = "Total: Q" + total.toFixed(2);
 }
 
-function finalizar() {
+function finalizarVenta() {
   if (carrito.length === 0) return alert("No hay productos");
+
+  // Validar stock antes de confirmar
+  for (let item of carrito) {
+    if (inventario[item.codigo].stock < item.cant) {
+      alert("❌ Stock insuficiente para: " + item.nombre);
+      return;
+    }
+  }
+
+  // Descontar stock ahora sí
+  carrito.forEach(item => {
+    inventario[item.codigo].stock -= item.cant;
+  });
+
+  localStorage.setItem("inv", JSON.stringify(inventario));
+
   carrito = [];
   actualizarVenta();
-  alert("✅ Venta finalizada");
+  mostrarInventario();
+
+  alert("✅ Venta finalizada correctamente");
+}
+
+function cancelarVenta() {
+  if (carrito.length === 0) return;
+  if (!confirm("¿Cancelar la venta actual?")) return;
+
+  carrito = [];
+  actualizarVenta();
+  alert("Venta cancelada. Inventario intacto.");
 }
 
 mostrarInventario();
