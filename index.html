@@ -27,6 +27,7 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 
 <h2 class="no-print">POS – FERRETERÍA SANDOVAL</h2>
 
+<!-- INVENTARIO -->
 <section class="no-print">
 <h3>📦 Registrar / Agregar Existencia</h3>
 <input id="codigo" placeholder="Código de barras">
@@ -46,8 +47,18 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 </thead>
 <tbody id="tablaInv"></tbody>
 </table>
+
+<h4>🔍 Buscar producto por nombre</h4>
+<input id="buscar" placeholder="Escribe el nombre del producto">
+<table>
+<thead>
+<tr><th>Producto</th><th>Stock</th><th>Acción</th></tr>
+</thead>
+<tbody id="tablaBusqueda"></tbody>
+</table>
 </section>
 
+<!-- VENTA -->
 <section class="no-print">
 <h3>🛒 Venta</h3>
 <input id="scan" placeholder="Código + ENTER">
@@ -120,6 +131,26 @@ function mostrarInventario() {
   }
 }
 
+/* ===== BUSCADOR ===== */
+buscar.addEventListener("input", function () {
+  const texto = this.value.toLowerCase();
+  tablaBusqueda.innerHTML = "";
+  if (texto.length < 2) return;
+
+  for (let c in inventario) {
+    const p = inventario[c];
+    if (p.nombre.toLowerCase().includes(texto)) {
+      tablaBusqueda.innerHTML += `
+        <tr>
+          <td>${p.nombre}</td>
+          <td>${p.stock}</td>
+          <td><button onclick="agregar('${c}')">Agregar</button></td>
+        </tr>
+      `;
+    }
+  }
+});
+
 /* ===== VENTA ===== */
 scan.addEventListener("keydown", e => {
   if (e.key === "Enter") {
@@ -141,14 +172,7 @@ function agregar(c) {
   ));
   if (precioVenta < p.precioMin) return alert("Debajo del mínimo");
 
-  carrito.push({
-    codigo:c,
-    nombre:p.nombre,
-    cant,
-    precio:precioVenta,
-    total:cant*precioVenta
-  });
-
+  carrito.push({ codigo:c, nombre:p.nombre, cant, precio:precioVenta, total:cant*precioVenta });
   actualizarVenta();
 }
 
@@ -192,8 +216,7 @@ function imprimirTicket() {
   let html = `
   <center><strong>FERRETERÍA SANDOVAL</strong></center>
   <center>${new Date().toLocaleString()}</center>
-  <hr>
-  `;
+  <hr>`;
   carrito.forEach(i=>{
     html+=`${i.nombre}<br>${i.cant} x Q${i.precio} = Q${i.total}<br>`;
   });
@@ -204,9 +227,9 @@ function imprimirTicket() {
   location.reload();
 }
 
-/* ===== CIERRE DEL DÍA ===== */
+/* ===== CIERRE ===== */
 function cerrarDia() {
-  if (ventasDia.length === 0) return alert("No hay ventas en el día");
+  if (ventasDia.length === 0) return alert("No hay ventas");
 
   let resumen = {};
   let total = 0;
@@ -219,12 +242,10 @@ function cerrarDia() {
   });
 
   let mensaje = `📊 CIERRE DIARIO – FERRETERÍA SANDOVAL\n`;
-  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n📦 DETALLE DE VENTAS:\n\n`;
+  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n📦 DETALLE:\n\n`;
 
   for (let p in resumen) {
-    mensaje += `- ${p}\n`;
-    mensaje += `  Cantidad: ${resumen[p].cant}\n`;
-    mensaje += `  Total: Q${resumen[p].total.toFixed(2)}\n\n`;
+    mensaje += `- ${p}\n  Cantidad: ${resumen[p].cant}\n  Total: Q${resumen[p].total.toFixed(2)}\n\n`;
   }
 
   mensaje += `💰 TOTAL DEL DÍA: Q${total.toFixed(2)}`;
@@ -233,12 +254,11 @@ function cerrarDia() {
 
   ventasDia = [];
   localStorage.removeItem("ventasDia");
-
-  alert("✅ Cierre enviado. Ventas del día reiniciadas.");
+  alert("✅ Cierre enviado. Ventas reiniciadas.");
 }
 
 mostrarInventario();
 </script>
 
 </body>
-</html>
+</html
