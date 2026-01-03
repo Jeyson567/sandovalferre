@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<title>POS – Ferretería y ventas de materiales machaquila</title>
+<title>POS – Ferretería Y Ventas De Materiales Machaquila</title>
 
 <style>
 body { font-family: Arial, sans-serif; background:#f2f2f2; padding:10px; }
@@ -25,13 +25,14 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 
 <body>
 
-<h2 class="no-print">POS – ferreteria y ventas de materiales machaquila</h2>
+<h2 class="no-print">POS – FERRETERÍA Y VENTAS DE MATERIALES MACHAQUILA</h2>
 
 <!-- INVENTARIO -->
 <section class="no-print">
 <h3>📦 Registrar / Agregar Existencia</h3>
 <input id="codigo" placeholder="Código de barras">
 <input id="nombre" placeholder="Nombre del producto">
+<input id="costo" type="number" placeholder="Costo por unidad (Q)">
 <input id="precio" type="number" placeholder="Precio normal (Q)">
 <input id="precioMin" type="number" placeholder="Precio mínimo permitido (Q)">
 <input id="stock" type="number" placeholder="Cantidad a agregar">
@@ -46,15 +47,6 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 <tr><th>Código</th><th>Producto</th><th>Stock</th></tr>
 </thead>
 <tbody id="tablaInv"></tbody>
-</table>
-
-<h4>🔍 Buscar producto por nombre</h4>
-<input id="buscar" placeholder="Escribe el nombre del producto">
-<table>
-<thead>
-<tr><th>Producto</th><th>Stock</th><th>Acción</th></tr>
-</thead>
-<tbody id="tablaBusqueda"></tbody>
 </table>
 </section>
 
@@ -78,7 +70,8 @@ th, td { border-bottom:1px solid #ccc; padding:4px; }
 </section>
 
 <script>
-const telefonoJefe = "50249805357";
+/* ===== CONFIGURACIÓN ===== */
+const telefonoJefe = "50249805357"; // WhatsApp destino
 
 let inventario = JSON.parse(localStorage.getItem("inv")) || {};
 let carrito = [];
@@ -88,6 +81,7 @@ let ventasDia = JSON.parse(localStorage.getItem("ventasDia")) || [];
 function guardar() {
   const c = codigo.value.trim();
   const n = nombre.value.trim();
+  const cost = Number(costo.value);
   const p = Number(precio.value);
   const pmin = Number(precioMin.value);
   const s = Number(stock.value);
@@ -97,8 +91,8 @@ function guardar() {
   if (inventario[c]) {
     inventario[c].stock += s;
   } else {
-    if (!n || !p || !pmin) return alert("Complete todos los datos");
-    inventario[c] = { nombre:n, precio:p, precioMin:pmin, stock:s };
+    if (!n || !p || !pmin || !cost) return alert("Complete todos los datos");
+    inventario[c] = { nombre:n, costo:cost, precio:p, precioMin:pmin, stock:s };
   }
 
   localStorage.setItem("inv", JSON.stringify(inventario));
@@ -117,7 +111,7 @@ function eliminarProducto() {
 }
 
 function limpiar() {
-  codigo.value = nombre.value = precio.value = precioMin.value = stock.value = "";
+  codigo.value = nombre.value = costo.value = precio.value = precioMin.value = stock.value = "";
 }
 
 function mostrarInventario() {
@@ -130,26 +124,6 @@ function mostrarInventario() {
     </tr>`;
   }
 }
-
-/* ===== BUSCADOR ===== */
-buscar.addEventListener("input", function () {
-  const texto = this.value.toLowerCase();
-  tablaBusqueda.innerHTML = "";
-  if (texto.length < 2) return;
-
-  for (let c in inventario) {
-    const p = inventario[c];
-    if (p.nombre.toLowerCase().includes(texto)) {
-      tablaBusqueda.innerHTML += `
-        <tr>
-          <td>${p.nombre}</td>
-          <td>${p.stock}</td>
-          <td><button onclick="agregar('${c}')">Agregar</button></td>
-        </tr>
-      `;
-    }
-  }
-});
 
 /* ===== VENTA ===== */
 scan.addEventListener("keydown", e => {
@@ -172,7 +146,17 @@ function agregar(c) {
   ));
   if (precioVenta < p.precioMin) return alert("Debajo del mínimo");
 
-  carrito.push({ codigo:c, nombre:p.nombre, cant, precio:precioVenta, total:cant*precioVenta });
+  const ganancia = (precioVenta - p.costo) * cant;
+
+  carrito.push({
+    codigo:c,
+    nombre:p.nombre,
+    cant,
+    precio:precioVenta,
+    total:cant*precioVenta,
+    ganancia
+  });
+
   actualizarVenta();
 }
 
@@ -214,7 +198,7 @@ function cancelarVenta() {
 /* ===== TICKET ===== */
 function imprimirTicket() {
   let html = `
-  <center><strong>Ferretería y ventas de materiales machaquila</strong></center>
+  <center><strong>FERRETERÍA Y VENTAS DE MATERIALES MACHAQUILA</strong></center>
   <center>${new Date().toLocaleString()}</center>
   <hr>`;
   carrito.forEach(i=>{
@@ -231,24 +215,18 @@ function imprimirTicket() {
 function cerrarDia() {
   if (ventasDia.length === 0) return alert("No hay ventas");
 
-  let resumen = {};
-  let total = 0;
+  let totalVentas = 0;
+  let totalGanancia = 0;
 
   ventasDia.forEach(v=>{
-    if (!resumen[v.nombre]) resumen[v.nombre]={cant:0,total:0};
-    resumen[v.nombre].cant += v.cant;
-    resumen[v.nombre].total += v.total;
-    total += v.total;
+    totalVentas += v.total;
+    totalGanancia += v.ganancia;
   });
 
-  let mensaje = `📊 CIERRE DIARIO – FERRETERÍA SANDOVAL\n`;
-  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n📦 DETALLE:\n\n`;
-
-  for (let p in resumen) {
-    mensaje += `- ${p}\n  Cantidad: ${resumen[p].cant}\n  Total: Q${resumen[p].total.toFixed(2)}\n\n`;
-  }
-
-  mensaje += `💰 TOTAL DEL DÍA: Q${total.toFixed(2)}`;
+  let mensaje = `📊 CIERRE DIARIO – FERRETERÍA Y VENTAS DE MATERIALES MACHAQUILA\n`;
+  mensaje += `Fecha: ${new Date().toLocaleDateString()}\n\n`;
+  mensaje += `💵 TOTAL VENDIDO: Q${totalVentas.toFixed(2)}\n`;
+  mensaje += `📈 GANANCIA DEL DÍA: Q${totalGanancia.toFixed(2)}`;
 
   window.open(`https://wa.me/${telefonoJefe}?text=${encodeURIComponent(mensaje)}`);
 
@@ -261,4 +239,4 @@ mostrarInventario();
 </script>
 
 </body>
-</html
+</html>
