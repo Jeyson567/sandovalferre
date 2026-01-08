@@ -49,11 +49,11 @@ th, td { border-bottom:1px solid #ccc; padding:4px; font-size:14px; }
 <tbody id="tablaInv"></tbody>
 </table>
 
-<h4>🔍 Buscar producto por nombre</h4>
-<input id="buscar" placeholder="Escribe parte del nombre">
+<h4>🔍 Buscar producto (nombre o código)</h4>
+<input id="buscar" placeholder="Escribe nombre o código">
 <table>
 <thead>
-<tr><th>Producto</th><th>Stock</th><th>Acción</th></tr>
+<tr><th>Código</th><th>Producto</th><th>Stock</th><th>Acción</th></tr>
 </thead>
 <tbody id="tablaBusqueda"></tbody>
 </table>
@@ -132,17 +132,22 @@ function mostrarInventario() {
   }
 }
 
-/* ===== BUSCADOR ===== */
+/* ===== BUSCADOR POR NOMBRE O CÓDIGO ===== */
 buscar.addEventListener("input", function () {
   const texto = this.value.toLowerCase();
   tablaBusqueda.innerHTML = "";
-  if (texto.length < 2) return;
+
+  if (texto.length < 1) return;
 
   for (let c in inventario) {
     const p = inventario[c];
-    if (p.nombre.toLowerCase().includes(texto)) {
+    if (
+      p.nombre.toLowerCase().includes(texto) ||
+      c.toLowerCase().includes(texto)
+    ) {
       tablaBusqueda.innerHTML += `
         <tr>
+          <td>${c}</td>
           <td>${p.nombre}</td>
           <td>${p.stock}</td>
           <td><button onclick="agregar('${c}')">Agregar</button></td>
@@ -220,7 +225,7 @@ function cancelarVenta() {
   actualizarVenta();
 }
 
-/* ===== TICKET DE VENTA ===== */
+/* ===== TICKET VENTA ===== */
 function imprimirTicketVenta() {
   let html = `
   <center><strong>FERRETERÍA Y VENTAS DE MATERIALES MACHAQUILA</strong></center>
